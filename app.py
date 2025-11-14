@@ -237,7 +237,7 @@ def create_app():
                 y = height - 80
         # total
         c.setFont("Helvetica-Bold", 12)
-        c.drawString(350, y - 10, "Grand Total: ₹")
+        c.drawString(350, y - 10, "Grand Total: ")
         c.drawString(430, y - 10, f"{bill.total_amount:.2f}")
         # QR at left corner if exists (search for qr.* in upload folder)
         try:
