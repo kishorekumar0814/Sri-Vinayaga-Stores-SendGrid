@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="admin-wrap">
+  <div class="admin-card">
+    <h3>Admin Details</h3>
+    <p><strong>Name:</strong> {{ admin.name }}</p>
+    <p><strong>AUID:</strong> {{ admin.auid }}</p>
+    <p><strong>Mobile:</strong> {{ admin.mobile }}</p>
+
+    <form method="post" action="{{ url_for('admin_upload_qr') }}" enctype="multipart/form-data">
+      <label>Upload QR (for bills)</label>
+      <input type="file" name="qr" accept="image/*">
+      <button class="btn" type="submit">Upload QR</button>
+    </form>
+  </div>
+
+  <div class="orders-card">
+    <h3>Customer Orders</h3>
+    {% if orders %}
+      <table class="orders-table">
+        <thead><tr><th>OrderID</th><th>Customer</th><th>Items/Text</th><th>File</th><th>Pickup</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+        {% for o in orders %}
+          <tr>
+            <td>{{ o.order_id }}</td>
+            <td>{{ o.customer.name }} ({{ o.customer.email }})</td>
+            <td style="max-width:220px;overflow:auto;">{{ o.raw_text or '-' }}</td>
+            <td>
+              {% if o.uploaded_filename %}
+                <a href="{{ url_for('uploaded_file', filename=o.uploaded_filename) }}" target="_blank">view</a>
+              {% else %}-{% endif %}
+            </td>
+            <td>{{ o.pickup_option }}</td>
+            <td>{{ o.status }}</td>
+            <td>
+              <form method="post" action="{{ url_for('admin_change_status', order_id=o.id) }}" style="display:inline;">
+                <select name="status">
+                  <option value="Pending" {% if o.status=='Pending' %}selected{% endif %}>Pending</option>
+                  <option value="Received" {% if o.status=='Received' %}selected{% endif %}>Received</option>
+                  <option value="Packed" {% if o.status=='Packed' %}selected{% endif %}>Packed</option>
+                </select>
+                <button class="btn small" type="submit">Update</button>
+              </form>
+
+              <form method="post" action="{{ url_for('admin_delete_order', order_id=o.id) }}" style="display:inline;" onsubmit="return confirm('Delete order?');">
+                <button class="btn small danger" type="submit">Delete</button>
+              </form>
+
+              <a class="btn small" href="{{ url_for('billing', order_id=o.id) }}">Billing</a>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No orders yet.</p>
+    {% endif %}
+  </div>
+
+  <div class="bills-card">
+    <h3>Generated Bills</h3>
+    {% if bills %}
+      <ul>
+      {% for b in bills %}
+        <li>{{ b.bill_id }} — Order: {{ b.order_id }} — Total ₹{{ "%.2f"|format(b.total_amount) }} — <a href="{{ url_for('download_bill', bill_id=b.bill_id) }}">Download</a></li>
+      {% endfor %}
+      </ul>
+    {% else %}
+      <p>No bills yet.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

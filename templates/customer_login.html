@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="center-card">
+  <h2>Customer Login</h2>
+  <form method="post">
+    <label>Email or CUID</label>
+    <input type="text" name="identifier" required>
+    <label>Password</label>
+    <input type="password" name="password" required>
+    <div class="form-actions">
+      <button class="btn" type="submit">Login</button>
+      <a href="{{ url_for('customer_signup') }}" class="btn-link">Create an account</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

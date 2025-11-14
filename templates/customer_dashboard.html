@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="customer-wrap">
+  <div class="customer-card">
+    <h3>Your Details</h3>
+    <p><strong>Name:</strong> {{ customer.name }}</p>
+    <p><strong>CUID:</strong> {{ customer.cuid }}</p>
+    <p><strong>Mobile:</strong> {{ customer.mobile }}</p>
+    <p><strong>Address:</strong> {{ customer.address }}</p>
+  </div>
+
+  <div class="order-form-card">
+    <h3>Place Order</h3>
+    <form method="post" enctype="multipart/form-data">
+      <label>Order (text)</label>
+      <textarea name="order_text" placeholder="2kg rice, 1kg sugar..."></textarea>
+      <label>Or upload document (jpg,png,pdf,doc)</label>
+      <input type="file" name="order_file">
+      <label>Pickup option</label>
+      <select name="pickup_option">
+        <option>Self Pick</option>
+        <option>Home Delivery</option>
+      </select>
+      <div class="form-actions">
+        <button class="btn" type="submit">Submit Order</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="orders-card">
+    <h3>Your Orders</h3>
+    {% if orders %}
+      <table class="orders-table">
+        <thead><tr><th>OrderID</th><th>Items/Text</th><th>File</th><th>Pickup</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+        {% for o in orders %}
+          <tr>
+            <td>{{ o.order_id }}</td>
+            <td style="max-width:220px;overflow:auto;">{{ o.raw_text or '-' }}</td>
+            <td>
+              {% if o.uploaded_filename %}
+                <a href="{{ url_for('uploaded_file', filename=o.uploaded_filename) }}" target="_blank">view</a>
+              {% else %}-{% endif %}
+            </td>
+            <td>{{ o.pickup_option }}</td>
+            <td>{{ o.status }}</td>
+            <td>
+              <form method="post" action="{{ url_for('customer_delete_order', order_pk=o.id) }}" onsubmit="return confirm('Delete order?');">
+                <button class="btn small danger" type="submit">Delete</button>
+              </form>
+              {% if bills.get(o.order_id) %}
+                <a class="btn small" href="{{ url_for('download_bill', bill_id=bills[o.order_id].bill_id) }}">Download Bill</a>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No orders placed yet.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

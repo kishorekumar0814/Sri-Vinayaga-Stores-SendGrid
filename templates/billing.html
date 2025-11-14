@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="center-card">
+  <h2>Billing for Order {{ order.order_id }}</h2>
+  <p><strong>Customer:</strong> {{ order.customer.name }} | <strong>Pickup:</strong> {{ order.pickup_option }} | <strong>Status:</strong> {{ order.status }}</p>
+
+  <div class="card small">
+    <h4>Items (add rows then Generate Bill)</h4>
+    <form method="post" id="billingForm">
+      <div id="itemsWrapper">
+        <div class="item-row">
+          <input name="item_name[]" placeholder="Item name" required>
+          <input name="item_qty[]" placeholder="Qty (e.g., 2kg)" required>
+          <input name="item_price[]" placeholder="Price" required>
+          <button type="button" class="btn small danger" onclick="removeRow(this)">-</button>
+        </div>
+      </div>
+
+      <button type="button" class="btn" onclick="addRow()">Add Item</button>
+      <div class="form-actions">
+        <button class="btn" type="submit">Generate Bill (PDF)</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+function addRow(){
+  const wrapper = document.getElementById('itemsWrapper');
+  const div = document.createElement('div');
+  div.className = 'item-row';
+  div.innerHTML = `<input name="item_name[]" placeholder="Item name" required>
+                   <input name="item_qty[]" placeholder="Qty (e.g., 1kg)" required>
+                   <input name="item_price[]" placeholder="Price" required>
+                   <button type="button" class="btn small danger" onclick="removeRow(this)">-</button>`;
+  wrapper.appendChild(div);
+}
+function removeRow(b){
+  const row = b.parentElement;
+  row.remove();
+}
+</script>
+{% endblock %}
