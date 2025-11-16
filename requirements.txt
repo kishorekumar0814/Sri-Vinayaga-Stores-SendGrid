@@ -4,4 +4,7 @@ Werkzeug
 reportlab
 Pillow
 python-dotenv
+datetime
+Flask-Mail
+random
 gunicorn

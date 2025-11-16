@@ -9,7 +9,9 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 from PIL import Image
 from dotenv import load_dotenv
-import json
+from datetime import datetime, timedelta
+from flask_mail import Mail, Message
+import random
 
 UPLOAD_FOLDER = os.path.join('instance', 'uploads')
 ALLOWED_EXT = set(['png','jpg','jpeg','gif','pdf','doc','docx'])
@@ -18,6 +20,7 @@ if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 load_dotenv()
+attempts = {}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXT
@@ -28,7 +31,14 @@ def create_app():
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+    app.config['MAIL_SERVER'] = os.getenv("MAIL_SERVER")
+    app.config['MAIL_PORT'] = int(os.getenv("MAIL_PORT"))
+    app.config['MAIL_USE_TLS'] = os.getenv("MAIL_USE_TLS") == "True"
+    app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
+    app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
+    app.config['MAIL_DEFAULT_SENDER'] = os.getenv("MAIL_DEFAULT_SENDER")
     db.init_app(app)
+    mail = Mail(app)
 
     with app.app_context():
         db.create_all()
@@ -58,49 +68,225 @@ def create_app():
     @app.route('/')
     def home():
         return render_template('home.html')
+    
+    @app.route("/admin/security", methods=["GET", "POST"])
+    def admin_security():
+        key_id = "admin_security"
+
+        # Check if blocked
+        if not check_rate_limit(key_id):
+            # ❌ DO NOT redirect (causes loop)
+            # return redirect(url_for("admin_security"))
+
+            flash("Too many attempts! Try again after 5 minutes.", "danger")
+            return render_template("admin_key.html")   # <-- FIXED
+
+        if request.method == "POST":
+            entered = request.form.get("secret_key")
+
+            if entered == os.getenv("ADMIN_SECURITY_KEY"):
+                attempts[key_id] = {"count": 0, "block_until": None}  # reset
+                session["admin_access"] = True
+                return redirect(url_for("admin_login"))
+
+            # Wrong key
+            record_failed_attempt(key_id)
+            flash("Invalid security key!", "danger")
+            return render_template("admin_key.html")   # also prevent loops
+
+        return render_template("admin_key.html")
+    
+    @app.route("/admin/resend-otp")
+    def send_admin_otp():
+        email = session.get("admin_email")
+
+        if not email:
+            flash("Session expired! Please sign up again.", "danger")
+            return redirect(url_for("admin_signup"))
+
+        # Generate new OTP
+        new_otp = str(random.randint(100000, 999999))
+        session["admin_otp"] = new_otp
+
+        # Send OTP
+        msg = Message("Your Admin OTP",
+                    recipients=[email])
+        msg.body = f"Your new OTP is: {new_otp}"
+        mail.send(msg)
+
+        flash("A new OTP has been sent!", "success")
+        return redirect(url_for("admin_verify_otp"))
+
+    
+    @app.route("/admin/resend-otp")
+    def admin_resend_otp():
+        email = session.get("admin_email")
+
+        if not email:
+            flash("Session expired. Please sign up again.", "danger")
+            return redirect(url_for("admin_signup"))
+
+        # Generate new OTP
+        new_otp = str(random.randint(100000, 999999))
+        session["admin_otp"] = new_otp
+
+        # Send email
+        msg = Message("Your Admin OTP", recipients=[email])
+        msg.body = f"Your new OTP is: {new_otp}"
+        mail.send(msg)
+
+        flash("New OTP sent to your email!", "success")
+        return redirect(url_for("admin_verify_otp"))
+
+    
+    def check_rate_limit(key):
+        """Returns True if allowed, False if blocked."""
+        info = attempts.get(key)
+
+        if info:
+            # If blocked
+            if info.get("block_until") and datetime.now() < info["block_until"]:
+                return False
+            
+            # If 3 attempts already happened but block time expired → reset
+            if info["count"] >= 3:
+                attempts[key] = {"count": 0, "block_until": None}
+
+        return True
+
+
+    def record_failed_attempt(key):
+        """Records bad attempts and triggers block."""
+        info = attempts.get(key, {"count": 0, "block_until": None})
+        info["count"] += 1
+
+        if info["count"] >= 3:
+            info["block_until"] = datetime.now() + timedelta(minutes=5)
+
+        attempts[key] = info
+
 
     # ----- Admin signup/login/dashboard -----
-    @app.route('/admin/signup', methods=['GET','POST'])
+    @app.route("/admin/signup", methods=["GET", "POST"])
     def admin_signup():
+        # Security key check
+        if not session.get("admin_access"):
+            return redirect(url_for("admin_security"))
+
         if request.method == 'POST':
             name = request.form.get('name')
             email = request.form.get('email')
             mobile = request.form.get('mobile')
             password = request.form.get('password')
+
+            # Validate
             if not (name and email and mobile and password):
                 flash("Please fill all fields", "danger")
                 return redirect(url_for('admin_signup'))
+
             if Admin.query.filter_by(email=email).first():
                 flash("Email already exists", "danger")
                 return redirect(url_for('admin_signup'))
-            auid = generate_auid()
-            admin = Admin(name=name, email=email, mobile=mobile,
-                          password_hash=generate_password_hash(password),
-                          auid=auid)
-            db.session.add(admin)
-            db.session.commit()
-            flash(f"Account created. Your AUID: {auid}", "success")
-            return redirect(url_for('admin_login'))
-        return render_template('admin_signup.html')
+
+            # Generate OTP
+            otp = random.randint(100000, 999999)
+
+            # Store temporary signup data in session
+            session["pending_admin"] = {
+                "name": name,
+                "email": email,
+                "mobile": mobile,
+                "password_hash": generate_password_hash(password),
+                "otp": otp
+            }
+
+            # Send OTP email
+            msg = Message(
+                subject="Sri Vinayaga Stores - Admin Signup OTP",
+                sender=os.getenv("MAIL_USER"),
+                recipients=[email]
+            )
+            msg.body = f"Your OTP for Admin signup is: {otp}"
+            mail.send(msg)
+
+            flash("OTP sent to your email!", "success")
+            return redirect(url_for("admin_verify_otp"))
+
+        return render_template("admin_signup.html")
+    
+    @app.route("/admin/verify-otp", methods=["GET", "POST"])
+    def admin_verify_otp():
+        data = session.get("pending_admin")
+
+        if not data:
+            flash("Session expired. Please sign up again.", "danger")
+            return redirect(url_for("admin_signup"))
+
+        if request.method == "POST":
+            entered_otp = request.form.get("otp")
+
+            if str(entered_otp) == str(data["otp"]):
+                auid = generate_auid()
+
+                new_admin = Admin(
+                    name=data["name"],
+                    email=data["email"],
+                    mobile=data["mobile"],
+                    password_hash=data["password_hash"],
+                    auid=auid
+                )
+
+                db.session.add(new_admin)
+                db.session.commit()
+
+                session.pop("pending_admin")  # cleanup
+
+                flash(f"Admin account created successfully! Your AUID: {auid}", "success")
+                return redirect(url_for("admin_login"))
+
+            flash("Incorrect OTP! Try again.", "danger")
+
+        return render_template("admin_verify_otp.html")
+
+
 
     @app.route('/admin/login', methods=['GET','POST'])
     def admin_login():
+        key_id = "admin_login"
+
+        # If blocked due to too many attempts
+        if not check_rate_limit(key_id):
+            flash("Too many failed login attempts! Try again after 5 minutes.", "danger")
+            return render_template('admin_login.html')  # NO REDIRECT → FIX LOOP
+
         if request.method == 'POST':
             identifier = request.form.get('identifier')  # email or AUID
             password = request.form.get('password')
-            # try email then auid
-            admin = Admin.query.filter((Admin.email==identifier) | (Admin.auid==identifier)).first()
+
+            admin = Admin.query.filter(
+                (Admin.email == identifier) | (Admin.auid == identifier)
+            ).first()
+
+            # Correct login
             if admin and check_password_hash(admin.password_hash, password):
+                attempts[key_id] = {"count": 0, "block_until": None}  # reset attempts
+
                 session.clear()
                 session['role'] = 'admin'
                 session['admin_id'] = admin.id
                 session['admin_name'] = admin.name
                 flash("Admin logged in", "success")
                 return redirect(url_for('admin_dashboard'))
-            else:
-                flash("Invalid credentials; if you don't have an account create one", "danger")
-                return redirect(url_for('admin_login'))
+
+            # Wrong login → record attempt
+            record_failed_attempt(key_id)
+            flash("Invalid credentials!", "danger")
+
+            return render_template('admin_login.html')  # NO REDIRECT → FIX LOOP
+
         return render_template('admin_login.html')
+
+
 
     @app.route('/admin/logout')
     def admin_logout():
@@ -439,21 +625,40 @@ def create_app():
 
     @app.route('/customer/login', methods=['GET','POST'])
     def customer_login():
+        key_id = "customer_login"
+
+        # If rate-limited / blocked
+        if not check_rate_limit(key_id):
+            flash("Too many failed login attempts! Try again after 5 minutes.", "danger")
+            return render_template('customer_login.html')  # <-- NO redirect
+
         if request.method == 'POST':
-            identifier = request.form.get('identifier')  # email or CUID
+            identifier = request.form.get('identifier')
             password = request.form.get('password')
-            cust = Customer.query.filter((Customer.email==identifier) | (Customer.cuid==identifier)).first()
+
+            cust = Customer.query.filter(
+                (Customer.email == identifier) | (Customer.cuid == identifier)
+            ).first()
+
             if cust and check_password_hash(cust.password_hash, password):
+                # Reset attempts on success
+                attempts[key_id] = {"count": 0, "block_until": None}
+
                 session.clear()
                 session['role'] = 'customer'
                 session['customer_id'] = cust.id
                 session['customer_name'] = cust.name
                 flash("Customer logged in", "success")
                 return redirect(url_for('customer_dashboard'))
-            else:
-                flash("Invalid credentials; please sign up if you don't have an account", "danger")
-                return redirect(url_for('customer_login'))
+
+            # Failed login
+            record_failed_attempt(key_id)
+            flash("Invalid credentials!", "danger")
+
+            return render_template('customer_login.html')  # <-- NO redirect
+
         return render_template('customer_login.html')
+
 
     @app.route('/customer/logout')
     def customer_logout():

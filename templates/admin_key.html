@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div style="
+    max-width: 420px;
+    margin: 40px auto;
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+">
+
+    <h3 style="text-align:center; margin-bottom:20px; color:#16324f;">
+        Admin Security Check
+    </h3>
+
+    <form method="POST">
+
+        <label style="font-weight:600;">Enter Security Key</label>
+        <input 
+            type="password" 
+            name="secret_key" 
+            placeholder="Security Key"
+            style="
+                width:100%;
+                padding:10px;
+                border-radius:8px;
+                border:1px solid #ddd;
+                background:#fafbfd;
+                margin-top:6px;
+                margin-bottom:18px;
+            "
+        >
+
+        <button class="btn" type="submit" style="width:100%; padding:10px;">
+            Continue
+        </button>
+
+    </form>
+
+</div>
+
+{% endblock %}

@@ -31,7 +31,7 @@ function addRow(){
   div.innerHTML = `<input name="item_name[]" placeholder="Item name" required>
                    <input name="item_qty[]" placeholder="Qty (e.g., 1kg)" required>
                    <input name="item_price[]" placeholder="Price" required>
-                   <button type="button" class="btn small danger" onclick="removeRow(this)">-</button>`;
+                   <button type="button" class="btn small danger" onclick="removeRow(this)">Remove</button>`;
   wrapper.appendChild(div);
 }
 function removeRow(b){
