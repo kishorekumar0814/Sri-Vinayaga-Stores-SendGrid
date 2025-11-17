@@ -1,6 +1,7 @@
 {
   "name": "Sri Vinayaga Stores",
   "short_name": "Sri Vinayaga Store",
+  "version": "2.1",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

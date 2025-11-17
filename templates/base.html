@@ -20,6 +20,35 @@
         <li><a href="{{ url_for('home') }}">Home</a></li>
         <li><a href="{{ url_for('customer_login') }}">Customer</a></li>
         <li><a href="{{ url_for('admin_security') }}">Admin</a></li>
+        <li>
+        <button id="install-btn" 
+          style="
+            display:none; 
+            width: 70%;
+            margin-top:10px;
+            padding:10px 18px; 
+            background:#2b7a78; 
+            color:white; 
+            border:1px solid #ffffff; 
+            border-radius:6px; 
+            cursor:pointer;">
+           Install App 🡻
+        </button>
+        </li>
+        <li>
+        <button id="share-btn"
+          style="
+            width: 70%;
+            margin-top:10px;
+            padding:10px 18px;
+            background:#2b7a78;
+            color:white;
+            border:1px solid #ffffff;
+            border-radius:6px;
+            cursor:pointer;">
+          Share App 🔗
+        </button>
+        </li>
       </ul>
     </nav>
 
@@ -54,9 +83,9 @@
 
         {% block content %}{% endblock %}
       </section>
-      <button id="install-btn" style="display:none; position:fixed; bottom:20px; right:20px; padding:10px 18px; background:#2b7a78; color:white; border: 2px solid #357ABD;  border-radius:6px; cursor:pointer; z-index:1000;">
+      <!-- <button id="install-btn" style="display:none; position:fixed; bottom:20px; right:20px; padding:10px 18px; background:#2b7a78; color:white; border: 2px solid #357ABD;  border-radius:6px; cursor:pointer; z-index:1000;">
         Install App
-      </button>
+      </button> -->
 
       <footer class="site-footer">
         <p>© Sri Vinayaga Stores - 2025 - [Site Under Development & Testing]</p>
@@ -99,6 +128,31 @@
         .catch(err => console.error("Service Worker registration failed:", err));
     }
   </script>
+  <script>
+  // SHARE BUTTON FUNCTIONALITY
+    document.getElementById("share-btn").addEventListener("click", async () => {
+
+        const shareData = {
+            title: "Check this app!",
+            text: "Install this app – very useful!",
+            url: window.location.origin
+        };
+
+        if (navigator.share) {
+            try {
+                await navigator.share(shareData);
+                console.log("Shared successfully");
+            } catch (err) {
+                console.log("Share canceled");
+            }
+        } else {
+            // Fallback: Copy link to clipboard
+            navigator.clipboard.writeText(window.location.origin);
+            alert("Link copied to clipboard!");
+        }
+    });
+  </script>  
+
 
 </body>
 </html>

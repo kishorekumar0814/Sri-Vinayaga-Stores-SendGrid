@@ -1,4 +1,4 @@
-const cacheName = "svs-cache-v1";
+const cacheName = "svs-cache-v2.1";
 const assetsToCache = [
   "/",
   "/static/css/styles.css",
