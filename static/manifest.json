@@ -1,6 +1,6 @@
 {
   "name": "Sri Vinayaga Stores",
-  "short_name": "SVS Store",
+  "short_name": "Sri Vinayaga Store",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -15,6 +15,11 @@
     {
       "src": "/static/icons/icon-512.png",
       "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/icons/icon-1024.png",
+      "sizes": "1024x1024",
       "type": "image/png"
     }
   ]
